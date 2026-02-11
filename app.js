@@ -18,6 +18,121 @@ const clearBtn = document.getElementById('clearBtn');
 const historyList = document.getElementById('historyList');
 const clearHistoryBtn = document.getElementById('clearHistoryBtn');
 
+// --- P2P Section ---
+// Simple signaling server for demo (public, not for production)
+const SIGNALING_SERVER = 'wss://signaling.simplepeer.dev';
+let ws = null;
+let peer = null;
+let isInitiator = false;
+let sessionId = null;
+let connected = false;
+
+const sessionIdInput = document.getElementById('sessionIdInput');
+const createSessionBtn = document.getElementById('createSessionBtn');
+const joinSessionBtn = document.getElementById('joinSessionBtn');
+const sessionStatus = document.getElementById('sessionStatus');
+
+function setupSignaling() {
+    ws = new WebSocket(SIGNALING_SERVER);
+    ws.onopen = () => {
+        sessionStatus.textContent = 'Connected to signaling server.';
+    };
+    ws.onmessage = (event) => {
+        const msg = JSON.parse(event.data);
+        if (msg.type === 'signal' && msg.sessionId === sessionId && peer) {
+            peer.signal(msg.data);
+        }
+    };
+    ws.onerror = () => {
+        sessionStatus.textContent = 'Signaling server error.';
+    };
+    ws.onclose = () => {
+        sessionStatus.textContent = 'Signaling server disconnected.';
+    };
+}
+
+function sendSignal(data) {
+    if (ws && ws.readyState === 1) {
+        ws.send(JSON.stringify({ type: 'signal', sessionId, data }));
+    }
+}
+
+function createSession() {
+    sessionId = Math.random().toString(36).substr(2, 8);
+    sessionIdInput.value = sessionId;
+    isInitiator = true;
+    startPeer();
+    sessionStatus.textContent = `Session created. Share this ID: ${sessionId}`;
+}
+
+function joinSession() {
+    sessionId = sessionIdInput.value.trim();
+    if (!sessionId) {
+        sessionStatus.textContent = 'Enter a session ID to join.';
+        return;
+    }
+    isInitiator = false;
+    startPeer();
+    sessionStatus.textContent = `Joining session: ${sessionId}`;
+}
+
+function startPeer() {
+    setupSignaling();
+    peer = new SimplePeer({ initiator: isInitiator, trickle: false });
+    peer.on('signal', data => {
+        sendSignal(data);
+    });
+    peer.on('connect', () => {
+        connected = true;
+        sessionStatus.textContent = 'Peer connected!';
+        syncAllData();
+    });
+    peer.on('data', handlePeerData);
+    peer.on('close', () => {
+        connected = false;
+        sessionStatus.textContent = 'Peer disconnected.';
+    });
+    peer.on('error', err => {
+        sessionStatus.textContent = 'Peer error: ' + err;
+    });
+}
+
+function handlePeerData(data) {
+    try {
+        const msg = JSON.parse(data);
+        if (msg.type === 'task') {
+            taskInput.value = msg.task;
+            updateTaskDisplay();
+        } else if (msg.type === 'select') {
+            selectCard(msg.value, document.querySelector(`.card[data-value='${msg.value}']`));
+        } else if (msg.type === 'history') {
+            estimationHistory = msg.history;
+            renderHistory();
+        } else if (msg.type === 'clear') {
+            clearCurrentTask();
+        }
+    } catch (e) {
+        console.error('Peer data error:', e);
+    }
+}
+
+function sendPeerData(msg) {
+    if (connected && peer) {
+        peer.send(JSON.stringify(msg));
+    }
+}
+
+function syncAllData() {
+    // Send current task, selection, and history
+    if (taskInput.value.trim()) {
+        sendPeerData({ type: 'task', task: taskInput.value.trim() });
+    }
+    if (selectedCard) {
+        sendPeerData({ type: 'select', value: selectedCard });
+    }
+    sendPeerData({ type: 'history', history: estimationHistory });
+}
+
 // Initialize the app
 function init() {
     loadHistoryFromStorage();
@@ -289,10 +404,49 @@ function attachEventListeners() {
     });
 }
 
+// --- Attach session UI events ---
+createSessionBtn.addEventListener('click', createSession);
+joinSessionBtn.addEventListener('click', joinSession);
+
+// --- Sync actions with peer ---
+taskInput.addEventListener('input', () => {
+    if (connected) sendPeerData({ type: 'task', task: taskInput.value.trim() });
+});
+
+function selectCardP2P(value, cardElement) {
+    selectCard(value, cardElement);
+    if (connected) sendPeerData({ type: 'select', value });
+}
+
+// Patch selectCard to sync with peer
+const originalSelectCard = selectCard;
+selectCard = selectCardP2P;
+
+// Sync history and clear actions
+const originalSaveEstimation = saveEstimation;
+saveEstimation = function() {
+    originalSaveEstimation();
+    if (connected) sendPeerData({ type: 'history', history: estimationHistory });
+};
+const originalClearCurrentTask = clearCurrentTask;
+clearCurrentTask = function() {
+    originalClearCurrentTask();
+    if (connected) sendPeerData({ type: 'clear' });
+};
+const originalDeleteEstimation = deleteEstimation;
+deleteEstimation = function(id) {
+    originalDeleteEstimation(id);
+    if (connected) sendPeerData({ type: 'history', history: estimationHistory });
+};
+const originalClearAllHistory = clearAllHistory;
+clearAllHistory = function() {
+    originalClearAllHistory();
+    if (connected) sendPeerData({ type: 'history', history: estimationHistory });
+};
+
 // Initialize app when DOM is ready
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', init);
 } else {
     init();
 }
-

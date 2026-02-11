@@ -13,6 +13,17 @@
             <p class="subtitle">Estimate your tasks with ease</p>
         </header>
 
+        <!-- Session UI Section -->
+        <section class="session-section">
+            <h2>Session</h2>
+            <div class="session-controls">
+                <input type="text" id="sessionIdInput" class="task-input" placeholder="Enter session ID or leave blank to create" />
+                <button id="createSessionBtn" class="btn btn-primary">Create Session</button>
+                <button id="joinSessionBtn" class="btn btn-secondary">Join Session</button>
+            </div>
+            <div id="sessionStatus" class="selected-estimate"></div>
+        </section>
+
         <main>
             <!-- Task Input Section -->
             <section class="task-section">
@@ -67,6 +78,7 @@
         </footer>
     </div>
 
+    <script src="https://cdn.jsdelivr.net/npm/simple-peer@9.11.1/simplepeer.min.js"></script>
     <script src="app.js"></script>
 </body>
 </html>
