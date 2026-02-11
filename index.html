@@ -13,13 +13,19 @@
             <p class="subtitle">Estimate your tasks with ease</p>
         </header>
 
-        <!-- Session UI Section -->
+        <!-- Manual Signaling UI Section -->
         <section class="session-section">
-            <h2>Session</h2>
+            <h2>Peer Connection</h2>
             <div class="session-controls">
-                <input type="text" id="sessionIdInput" class="task-input" placeholder="Enter session ID or leave blank to create" />
-                <button id="createSessionBtn" class="btn btn-primary">Create Session</button>
-                <button id="joinSessionBtn" class="btn btn-secondary">Join Session</button>
+                <button id="createOfferBtn" class="btn btn-primary">Create Offer</button>
+                <button id="setOfferBtn" class="btn btn-secondary">Set Offer</button>
+                <button id="setAnswerBtn" class="btn btn-success">Set Answer</button>
+            </div>
+            <div style="margin: 10px 0;">
+                <textarea id="signalData" class="task-input" rows="4" placeholder="Paste offer/answer here or copy below"></textarea>
+            </div>
+            <div style="margin: 10px 0;">
+                <textarea id="signalOut" class="task-input" rows="4" readonly placeholder="Your offer/answer will appear here"></textarea>
             </div>
             <div id="sessionStatus" class="selected-estimate"></div>
         </section>
